@@ -645,6 +645,7 @@
          */
         const CONFIG = {
             emailDestino: "sustentabilidade.hmue@gmail.com",
+            googleScriptUrl: "https://script.google.com/macros/s/AKfycbyRsp931aSamfqzlmcsYJFRXcExHZF7338sFIlXBBZphI5vp-U7mke-z8nm5zK7cwAEvQ/exec",
             contatos: [
                 { id: 1, nome: "Coordenação Geral", cargo: "Coordenador SPGA", numero: "5511999999999" },
                 { id: 2, nome: "Plantão Portaria", cargo: "Supervisão", numero: "5511888888888" },
@@ -831,22 +832,7 @@
                 dataFormatada = dt.toLocaleDateString('pt-BR') + ' - ' + dt.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             }
 
-            const subject = `[SPGA – Ocorrência] ${titulo} – ${dataFormatada}`;
-
-            // Monta os dados do formulário com anexos
-            const formData = new FormData();
-            formData.append("_subject", subject);
-            formData.append("_template", "box");
-            formData.append("_captcha", "false");
-            formData.append("Título da Ocorrência", titulo);
-            formData.append("Data e Hora", dataFormatada);
-            formData.append("Líder SPGA", lider);
-            formData.append("Descrição", desc);
-
-            // Adiciona os arquivos anexados
-            arquivosAnexados.forEach((file, i) => {
-                formData.append("attachment", file);
-            });
+            const assunto = `[SPGA – Ocorrência] ${titulo} – ${dataFormatada}`;
 
             // Desabilita botão enquanto envia
             const btnEmail = document.querySelector('.btn-email');
@@ -854,22 +840,43 @@
             btnEmail.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
             btnEmail.disabled = true;
 
-            fetch(`https://formsubmit.co/ajax/${CONFIG.emailDestino}`, {
-                method: "POST",
-                body: formData
+            // Converte arquivos para base64 e envia
+            const promises = arquivosAnexados.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        resolve({
+                            nome: file.name,
+                            tipo: file.type,
+                            conteudo: reader.result.split(',')[1] // Remove o prefixo data:...;base64,
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(promises).then(anexosBase64 => {
+                const payload = {
+                    titulo: titulo,
+                    dataHora: dataFormatada,
+                    lider: lider,
+                    descricao: desc,
+                    assunto: assunto,
+                    anexos: anexosBase64
+                };
+
+                return fetch(CONFIG.googleScriptUrl, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(() => {
                 btnEmail.innerHTML = textoOriginal;
                 btnEmail.disabled = false;
-                
-                if(data.success) {
-                    showToast("✅ E-mail enviado com sucesso!");
-                    openModal('success-modal');
-                } else {
-                    showToast("⚠️ Verifique o e-mail de confirmação na caixa de entrada.", "fa-envelope");
-                    alert("📧 PRIMEIRA VEZ?\n\nO FormSubmit enviou um e-mail de confirmação para:\n" + CONFIG.emailDestino + "\n\nAbra esse e-mail e clique em 'Confirm'. Depois tente enviar novamente.\n\n(Isso só precisa ser feito 1 vez!)");
-                }
+                showToast("✅ E-mail enviado com sucesso!");
+                openModal('success-modal');
             })
             .catch(error => {
                 btnEmail.innerHTML = textoOriginal;
