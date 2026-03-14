@@ -822,6 +822,8 @@
 
             const titulo = document.getElementById("titulo").value.trim();
             const dataOrig = document.getElementById("data-hora").value;
+            const lider = document.getElementById("lider").value.trim();
+            const desc = document.getElementById("descricao").value.trim();
             
             let dataFormatada = "";
             if(dataOrig) {
@@ -830,18 +832,51 @@
             }
 
             const subject = `[SPGA – Ocorrência] ${titulo} – ${dataFormatada}`;
-            const bodyText = gerarTextoFormatado().replace(/\*/g, '');
 
-            const mailtoLink = `mailto:${CONFIG.emailDestino}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-            
-            const a = document.createElement('a');
-            a.href = mailtoLink;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            setTimeout(() => { openModal('success-modal'); }, 1000);
+            // Monta os dados do formulário com anexos
+            const formData = new FormData();
+            formData.append("_subject", subject);
+            formData.append("_template", "box");
+            formData.append("_captcha", "false");
+            formData.append("Título da Ocorrência", titulo);
+            formData.append("Data e Hora", dataFormatada);
+            formData.append("Líder SPGA", lider);
+            formData.append("Descrição", desc);
+
+            // Adiciona os arquivos anexados
+            arquivosAnexados.forEach((file, i) => {
+                formData.append("attachment", file);
+            });
+
+            // Desabilita botão enquanto envia
+            const btnEmail = document.querySelector('.btn-email');
+            const textoOriginal = btnEmail.innerHTML;
+            btnEmail.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+            btnEmail.disabled = true;
+
+            fetch(`https://formsubmit.co/ajax/${CONFIG.emailDestino}`, {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                btnEmail.innerHTML = textoOriginal;
+                btnEmail.disabled = false;
+                
+                if(data.success) {
+                    showToast("✅ E-mail enviado com sucesso!");
+                    openModal('success-modal');
+                } else {
+                    showToast("⚠️ Verifique o e-mail de confirmação na caixa de entrada.", "fa-envelope");
+                    alert("📧 PRIMEIRA VEZ?\n\nO FormSubmit enviou um e-mail de confirmação para:\n" + CONFIG.emailDestino + "\n\nAbra esse e-mail e clique em 'Confirm'. Depois tente enviar novamente.\n\n(Isso só precisa ser feito 1 vez!)");
+                }
+            })
+            .catch(error => {
+                btnEmail.innerHTML = textoOriginal;
+                btnEmail.disabled = false;
+                console.error("Erro ao enviar:", error);
+                alert("Erro ao enviar e-mail. Verifique sua conexão com a internet.");
+            });
         }
 
         /**
