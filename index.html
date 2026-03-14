@@ -545,11 +545,16 @@
                 </div>
 
                 <div class="actions-grid">
-                    <button type="button" class="btn btn-email" onclick="sendEmail()">
-                        <i class="fa-solid fa-envelope"></i> Enviar por E-mail
+                    <button type="button" class="btn btn-email" onclick="sendEmailGmail()">
+                        <i class="fa-solid fa-envelope"></i> Enviar via Gmail
                     </button>
                     <button type="button" class="btn btn-wpp" onclick="openWppModal()">
                         <i class="fa-brands fa-whatsapp"></i> Enviar via WhatsApp
+                    </button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button type="button" class="btn btn-outline" style="width: 100%;" onclick="sendEmailMailto()">
+                        <i class="fa-solid fa-at"></i> Abrir no App de E-mail do Dispositivo (Outlook, etc.)
                     </button>
                 </div>
             </div>
@@ -815,11 +820,9 @@
         }
 
         /**
-         * 3. ENVIO DE EMAIL (MAILTO)
+         * 3. ENVIO DE EMAIL
          */
-        function sendEmail() {
-            if (!validarFormulario()) return;
-
+        function getEmailData() {
             const titulo = document.getElementById("titulo").value.trim();
             const dataOrig = document.getElementById("data-hora").value;
             
@@ -830,14 +833,36 @@
             }
 
             const subject = `[SPGA – Ocorrência] ${titulo} – ${dataFormatada}`;
-            const bodyText = gerarTextoFormatado().replace(/\*/g, ''); // Tira marcação do WPP pro email ficar clean
+            const bodyText = gerarTextoFormatado().replace(/\*/g, '');
+            return { subject, bodyText };
+        }
+
+        // Abre o Gmail diretamente no navegador (funciona em qualquer dispositivo)
+        function sendEmailGmail() {
+            if (!validarFormulario()) return;
+            const { subject, bodyText } = getEmailData();
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(CONFIG.emailDestino)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
             
-            const link = `mailto:${CONFIG.emailDestino}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+            window.open(gmailUrl, '_blank');
+            setTimeout(() => { openModal('success-modal'); }, 1000);
+        }
+
+        // Abre o app de e-mail nativo do dispositivo (Outlook, Apple Mail, etc.)
+        function sendEmailMailto() {
+            if (!validarFormulario()) return;
+            const { subject, bodyText } = getEmailData();
+
+            const mailtoLink = `mailto:${CONFIG.emailDestino}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
             
-            // Abre cliente de email
-            window.location.href = link;
+            // Usa um link <a> invisível para melhor compatibilidade com mobile
+            const a = document.createElement('a');
+            a.href = mailtoLink;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             
-            // Mostra tela de sucesso
             setTimeout(() => { openModal('success-modal'); }, 1000);
         }
 
