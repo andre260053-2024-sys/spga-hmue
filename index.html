@@ -541,20 +541,15 @@
             <div class="card">
                 <div class="alert">
                     <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem;"></i>
-                    <span><strong>Atenção:</strong> Os anexos devem ser adicionados manualmente no cliente de e-mail ou no WhatsApp, pois essas plataformas não suportam anexo automático via link de sistema.</span>
+                    <span><strong>Atenção:</strong> Anexos devem ser adicionados manualmente após abrir o e-mail ou WhatsApp.</span>
                 </div>
 
                 <div class="actions-grid">
-                    <button type="button" class="btn btn-email" onclick="sendEmailGmail()">
-                        <i class="fa-solid fa-envelope"></i> Enviar via Gmail
+                    <button type="button" class="btn btn-email" onclick="sendEmailMailto()">
+                        <i class="fa-solid fa-envelope"></i> Enviar por E-mail
                     </button>
-                    <button type="button" class="btn btn-wpp" onclick="openWppModal()">
+                    <button type="button" class="btn btn-wpp" onclick="enviarWhatsAppDireto()">
                         <i class="fa-brands fa-whatsapp"></i> Enviar via WhatsApp
-                    </button>
-                </div>
-                <div style="margin-top: 10px;">
-                    <button type="button" class="btn btn-outline" style="width: 100%;" onclick="sendEmailMailto()">
-                        <i class="fa-solid fa-at"></i> Abrir no App de E-mail do Dispositivo (Outlook, etc.)
                     </button>
                 </div>
             </div>
@@ -820,9 +815,11 @@
         }
 
         /**
-         * 3. ENVIO DE EMAIL
+         * 3. ENVIO DE EMAIL (MAILTO)
          */
-        function getEmailData() {
+        function sendEmailMailto() {
+            if (!validarFormulario()) return;
+
             const titulo = document.getElementById("titulo").value.trim();
             const dataOrig = document.getElementById("data-hora").value;
             
@@ -834,28 +831,9 @@
 
             const subject = `[SPGA – Ocorrência] ${titulo} – ${dataFormatada}`;
             const bodyText = gerarTextoFormatado().replace(/\*/g, '');
-            return { subject, bodyText };
-        }
-
-        // Abre o Gmail diretamente no navegador (funciona em qualquer dispositivo)
-        function sendEmailGmail() {
-            if (!validarFormulario()) return;
-            const { subject, bodyText } = getEmailData();
-
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(CONFIG.emailDestino)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
-            
-            window.open(gmailUrl, '_blank');
-            setTimeout(() => { openModal('success-modal'); }, 1000);
-        }
-
-        // Abre o app de e-mail nativo do dispositivo (Outlook, Apple Mail, etc.)
-        function sendEmailMailto() {
-            if (!validarFormulario()) return;
-            const { subject, bodyText } = getEmailData();
 
             const mailtoLink = `mailto:${CONFIG.emailDestino}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
             
-            // Usa um link <a> invisível para melhor compatibilidade com mobile
             const a = document.createElement('a');
             a.href = mailtoLink;
             a.style.display = 'none';
@@ -867,20 +845,25 @@
         }
 
         /**
-         * 4. ENVIO WHATSAPP (MODAL E CÓPIA)
+         * 4. ENVIO WHATSAPP (DIRETO)
          */
-        function openWppModal() {
+        function enviarWhatsAppDireto() {
             if (!validarFormulario()) return;
-            
-            // Mostrar ou ocultar painel de aviso e download de anexos se existirem arquivos
-            const anexosArea = document.getElementById("wpp-attachments-area");
-            if(arquivosAnexados.length > 0) {
-                anexosArea.style.display = "block";
-            } else {
-                anexosArea.style.display = "none";
-            }
-            
-            openModal('wpp-modal');
+
+            const texto = gerarTextoFormatado();
+
+            // Copia mensagem para a área de transferência
+            copiarParaAreaDeTransferencia(texto, () => {
+                showToast("✅ Mensagem copiada!");
+
+                // Abre WhatsApp sem número definido — o usuário escolhe o contato/grupo lá dentro
+                const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+
+                setTimeout(() => {
+                    window.open(url, '_blank');
+                    openModal('success-modal');
+                }, 600);
+            });
         }
 
         function renderizarDestinosWpp() {
